@@ -21,5 +21,8 @@
       "useDialog": true
     }
   },
-  "cordova": {}
+  "cordova": {},
+  "ios": {
+    "contentInset": "always"
+  }
 }

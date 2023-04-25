@@ -1,8 +1,14 @@
 import React from "react";
 import { IonContent, IonPage } from "@ionic/react";
-import { BleClient } from "@capacitor-community/bluetooth-le";
+import { BleClient, numberToUUID } from "@capacitor-community/bluetooth-le";
 import { Capacitor } from "@capacitor/core";
 import { Loading, Terminal, TopBar, Devices, Services } from "../components";
+
+const HEART_RATE_SERVICE = '0000180d-0000-1000-8000-00805f9b34fb';
+const BATTERY_SERVICE = numberToUUID(0x180f);
+const BATTERY_CHARACTERISTIC = numberToUUID(0x2a19);
+const FFE0_SERVICE = numberToUUID(0xFFE0);
+const FFE1_CHARACTERISTIC= numberToUUID(0xFFE1);
 
 class BleTest extends React.Component {
   constructor(props) {
@@ -49,9 +55,9 @@ class BleTest extends React.Component {
         message: "Scanning...",
       });
       await BleClient.initialize();
-      let device = await BleClient.requestDevice({
+      const device = await BleClient.requestDevice({
         services: [],
-        optionalServices: this.state.optionalService? [this.state.optionalService] : [],
+        optionalServices: [HEART_RATE_SERVICE, BATTERY_SERVICE, FFE0_SERVICE],
         namePrefix: this.state.prefixFilter ? this.state.prefixFilter : '',
       });
       this.setState({
@@ -71,11 +77,18 @@ class BleTest extends React.Component {
         data: [],
         selectedDevice: device,
       });
-      await BleClient.initialize();
-      await BleClient.disconnect(this.state.selectedDevice.deviceId);
+
       await BleClient.connect(this.state.selectedDevice.deviceId, (id) =>
         console.log(`Device ${id} disconnected!`)
-      );
+      ).then(() =>{
+        this.setState({
+          message: "Connected",
+          services: [],
+          loading: false,
+          isConnected: true,
+        })
+      });
+
       await BleClient.getServices(this.state.selectedDevice.deviceId).then(
         (services) => {
           if (services[0]) {
@@ -122,8 +135,15 @@ class BleTest extends React.Component {
   reset = async () => {
     try {
       await BleClient.initialize();
+      if (this.state.isConnected) {
+        await BleClient.disconnect(this.state.selectedDevice.deviceId);
+        this.setState({
+          message: "Disconnected",
+        });
+
+      }
       this.setState({
-        message: "Disconnected",
+        message: "Idle",
         loading: false,
         isConnected: false,
         data: [],
@@ -276,8 +296,6 @@ class BleTest extends React.Component {
   };
   read = async (deviceId, serviceUUID, chxUUID) => {
     try {
-      await BleClient.initialize();
-      await BleClient.disconnect(this.state.selectedDevice.deviceId);
       await BleClient.connect(this.state.selectedDevice.deviceId, (id) =>
         console.log(`Device ${id} disconnected!`)
       );
@@ -300,8 +318,6 @@ class BleTest extends React.Component {
   notify = async (deviceId, serviceUUID, chxUUID, stop = false) => {
     try {
       if (stop) {
-        await BleClient.initialize();
-        await BleClient.disconnect(this.state.selectedDevice.deviceId);
         await BleClient.connect(this.state.selectedDevice.deviceId, (id) =>
           console.log(`Device ${id} disconnected!`)
         );
@@ -319,8 +335,6 @@ class BleTest extends React.Component {
         });
         return null;
       }
-      await BleClient.initialize();
-      await BleClient.disconnect(this.state.selectedDevice.deviceId);
       await BleClient.connect(this.state.selectedDevice.deviceId, (id) =>
         console.log(`Device ${id} disconnected!`)
       );
@@ -368,6 +382,7 @@ class BleTest extends React.Component {
           let hexString = toWrtieArray[i]
           let hex = hexString.replace(/^0x/, '');
           v = hex.match(/[\dA-F]{2}/gi);
+          v = parseInt(v, 16)
         }
         else if ( typeof toWrtieArray[i] === 'number' ) {
           v = toWrtieArray[i]
@@ -378,8 +393,6 @@ class BleTest extends React.Component {
         view.setUint8(i,v)
       }
       this.parse(chxUUID, "write", view);
-      await BleClient.initialize();
-      await BleClient.disconnect(this.state.selectedDevice.deviceId);
       await BleClient.connect(this.state.selectedDevice.deviceId, (id) =>
         console.log(`Device ${id} disconnected!`)
       );
